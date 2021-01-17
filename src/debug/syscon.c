@@ -19,7 +19,7 @@ int pspSyscon_init(void)
 	sceSysregSpiClkEnable(0);
 
 	//sceSysregSpiIoEnable(0)
-	REG32(0xbc100078) |= (0x1000000<<0);
+	REG32(HW_IO_ENABLE) |= HW_IO_SPI_0;
 
 	// init SPI
 	REG32(0xbe580000) = 0xcf;

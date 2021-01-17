@@ -291,7 +291,7 @@ int sceLcdcCheckMode(void) // load current display specs into g_lcdc, from the h
         g_lcdc.scaledXres = v28 & 0xFFFF;
     }
     // 7AE8
-    int hw = *(int*)(0xBC100060);
+    int hw = HW(HW_CLOCK_SELECT_2);
     char hwBit = (hw >> 22) & 1;
     g_lcdc.disp.clk[0] = hwBit;
     switch (hw & 0x300000)

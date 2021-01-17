@@ -14,10 +14,10 @@ u32 sceSysregSpiClkSelect(int a1,int a2)
 
 	shift = a1<<2;
 
-	in = REG32(0xbc100064);
+	in = REG32(HW_CLOCK_SELECT_3);
 	out  = in & ~(7<<shift);
 	out |= a2<<shift;
-	REG32(0xbc100064) = out;
+	REG32(HW_CLOCK_SELECT_3) = out;
 	return (in>shift) & 7;
 }
 
@@ -28,9 +28,9 @@ u32 sceSysregSpiClkEnable(u32 bit)
 	u32 a2 = 1;
 
 	// 1128(mask,1)
-	in = REG32(0xbc100058);
+	in = REG32(HW_CLOCK_2_ENABLE);
 	out = (in & (~mask) );
 	if(a2) out |= mask;
-	REG32(0xbc100058) = out;
+	REG32(HW_CLOCK_2_ENABLE) = out;
 	return in & mask;
 }

@@ -1,6 +1,7 @@
 /* Copyright (C) 2011, 2012 The uOFW team
    See the file COPYING for copying permission.
 */
+#include <common_imp.h>
 
 int unkVar = 0x89000000; // 0x886128E0
 
@@ -9,14 +10,16 @@ int sub_11994()
     return sub_11C8C(2, 1); // Activate USB IO?
 }
 
-void sub_11C8C(int arg0, int arg1)
+// sets or clears HW_IO_ENABLE register bits
+void sub_11C8C(int bitmask, int set)
 {
-    int origVar = *(int*)(0xBC100078);
-    if (arg1 == 0)
-        *(int*)(0xBC100078) = origVar ^ (origVar & arg0);
+    int origVar = HW(HW_IO_ENABLE);
+    if (set == 0)
+        HW(HW_IO_ENABLE) = origVar & ~bitmask;
     else
-        *(int*)(0xBC100078) = origVar | arg0;
-    return (origVar & arg0) != 0;
+        HW(HW_IO_ENABLE) = origVar | bitmask;
+
+    return (origVar & bitmask) != 0;
 }
 
 int isInited; // 0x88630B00
@@ -96,9 +99,9 @@ int sub_49B8()
     {
         int firstIc = sub_3A84();
         int oldIc;
-        *(0xBC100050) |= 0x4000;
-        *(0xBC100058) |= 0x200;
-        *(0xBC100078) |= 0x80000;
+        HW(HW_BUSCLOCK_ENABLE) |= HW_BUSCLOCK_APB;
+        HW(HW_CLOCK_2_ENABLE) |= HW_CLOCK_UART_3;
+        HW(HW_IO_ENABLE) |= HW_IO_UART_3;
         sync();
         if (0x3D090 == 0)
             break(7); // ZOMG WE BROKE DA PSP

@@ -5,6 +5,7 @@ note:
 	Supported MsProDuo Only.
 
 ****************************************************************************/
+#include <common_imp.h>
 
 // debug switches
 #define SHOW_READ_DATA     0
@@ -224,10 +225,10 @@ int pspMsInit(void)
 
   //initialize the hardware
     int i;
-	*((volatile int*)(0xBC100054)) |= 0x00000100;
-	*((volatile int*)(0xBC100050)) |= 0x00000400;
-	*((volatile int*)(0xBC100078)) |= 0x00000010;
-	*((volatile int*)(0xBC10004C)) &= 0xFFFFFEFF;
+	HW(HW_CLOCK_1_ENABLE) |= HW_CLOCK_MSIF0;
+	HW(HW_BUSCLOCK_ENABLE) |= HW_BUSCLOCK_MSIF0;
+	HW(HW_IO_ENABLE) |= HW_IO_MSIF0;
+	HW(HW_PERIPH_RESET) &= ~HW_RESET_MSIF0;
 
 //Kprintf("reset\n");
 

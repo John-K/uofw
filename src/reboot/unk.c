@@ -1,7 +1,7 @@
 /* Copyright (C) 2011, 2012 The uOFW team
    See the file COPYING for copying permission.
 */
-
+#include <common_imp.h>
 #include "reboot.h"
 
 typedef struct {
@@ -579,9 +579,10 @@ int sub_113F0()
     return var;
 }
 
+// get fuse id
 u64 sub_11548()
 {
-    return (*(int*)(0xBC100090) << 32) | *(int*)(0xBD100094);
+    return (HW(HW_FUSE_ID_UPPER) << 32) | HW(HW_FUSE_ID_LOWER));
 }
 
 int sub_17E8(unsigned int arg)

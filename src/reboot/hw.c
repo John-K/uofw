@@ -1,6 +1,7 @@
 /* Copyright (C) 2011, 2012 The uOFW team
    See the file COPYING for copying permission.
 */
+#include <common_imp.h>
 
 void sub_01D4()
 {
@@ -49,15 +50,16 @@ int sub_0928()
     return 0;
 }
 
-int sub_11970(int arg0, int arg1)
+// sets or clears HW_BUSCLOCK_ENABLE register bits
+int sub_11970(int bitmask, int set)
 {
-    int origVar = *(int*)(0xBC100050);
-    if (arg1 == 0)
-        *(int*)(0xBC100050) = origVar ^ (origVar & arg0); // Clear bits
+    int origVar = HW(HW_BUSCLOCK_ENABLE);
+    if (set == 0)
+        HW(HW_BUSCLOCK_ENABLE) = origVar ^ (origVar & bitmask);
     else
-        *(int*)(0xBC100050) = origVar | arg0; // Add bits
+        HW(HW_BUSCLOCK_ENABLE) = origVar | bitmask;
 
-    return (origVar & arg0) != 0;
+    return (origVar & bitmask) != 0;
 }
 
 void sub_1810(int arg0, int arg1)

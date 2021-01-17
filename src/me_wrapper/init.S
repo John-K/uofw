@@ -32,7 +32,7 @@ ori        a0, a0, 0x0               #;rewritten so a0 is address of compressed 
 lui        a3, 0xBC10                #;
 sw         t1, 64(a3)                #;*0xBC100040 = [0,1,2,3]
 li         t1, 7                     #;
-sw         t1, 80(a3)                #;*0xBC100050 = 7
+sw         t1, 80(a3)                #;*0xBC100050 = 7 aka HW_BUSCLOCK_ENABLE = (HW_BUSCLOCK_ME | HW_BUSCLOCK_AW_REG_A | HW_BUSCLOCK_AW_REG_B)
 li         t1, -1                    #;
 sw         t1, 4(a3)                 #;*0xBC100004 = 0
 sync                                 #;
