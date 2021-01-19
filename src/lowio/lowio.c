@@ -25,7 +25,7 @@ s32 lowio_init()
 s32 _sceLowioModuleStart(SceSize argSize __attribute__((unused)), const void *argBlock __attribute__((unused)))
 {
     lowio_init();
-    //_sceGpioInit(argSize, argBlock);
+    _sceGpioInit(argSize, argBlock);
     /*
     FUN_00003bfc(argSize,argBlock);
     FUN_00004b50(argSize,argBlock);
