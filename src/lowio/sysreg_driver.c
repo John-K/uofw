@@ -3,6 +3,7 @@
 */
 
 #include <common_imp.h>
+#include <interruptman.h>
 
 int _updateResetForBitmask(int bitmask, int enable)
 {
@@ -263,7 +264,7 @@ int sceSysregMsifClkSelect(u32 msif_index, u32 clk_index)
     if (clk_index > 2)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 index = msif_index * 2;
     u32 value = HW(HW_CLOCK_SELECT_1);
     // todo: simplify
@@ -271,7 +272,7 @@ int sceSysregMsifClkSelect(u32 msif_index, u32 clk_index)
     u32 value_cleared_clk_sel_bits = value & ~(3 << index);
     u32 new_value = value_cleared_clk_sel_bits | (clk_index << index);
     HW(HW_CLOCK_SELECT_1) = new_value;
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 
     return msif_clk_sel_bits;
 }
@@ -281,11 +282,13 @@ int sceSysregAtaClkSelect(u32 clk_index)
     if (clk_index > 2)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 value = HW(HW_CLOCK_SELECT_1);
     u32 cur_bits = (value >> 4) & 0xF; // only needs to be & 0x3 but we're copying Sony code
-    HW(HW_CLOCK_SELECT_1) = value & 0xF | clk_index << 4;
-    sceKernelCpuResumeIntr();
+    HW(HW_CLOCK_SELECT_1) = (value & 0xF) | (clk_index << 4);
+    sceKernelCpuResumeIntr(intrState);
+
+    return cur_bits;
 }
 
 int sceSysregAtahddClkSelect(u32 clk_index)
@@ -293,11 +296,14 @@ int sceSysregAtahddClkSelect(u32 clk_index)
     if (clk_index > 2)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 value = HW(HW_CLOCK_SELECT_1);
     u32 cur_bits = (value >> 8) & 0xF; // only needs to be & 0x3 but we're copying Sony code
-    HW(HW_CLOCK_SELECT_1) = value & 0xFF | clk_index << 8;
-    sceKernelCpuResumeIntr();
+    // is below (value & 0xFF) to protect AtaClkSelect?
+    HW(HW_CLOCK_SELECT_1) = (value & 0xFF) | (clk_index << 8);
+    sceKernelCpuResumeIntr(intrState);
+
+    return cur_bits;
 }
 
 // sceSysreg_SOMETHING_ClkSelect
@@ -309,13 +315,14 @@ int sceSysreg_driver_C2F3061F(u32 index, u32 clk_index)
     if (clk_index > 3)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 offset = index * 2 + 10;
     u32 value = HW(HW_CLOCK_SELECT_1);
     u32 cur_bits = (value >> offset) & 0x3;
     u32 value_cleared_bits = value & ~(3 << offset);
     HW(HW_CLOCK_SELECT_1) = value_cleared_bits | (clk_index << offset);
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
+
     return cur_bits;
 }
 
@@ -328,12 +335,12 @@ int sceSysregAudioClkSelect(u32 index, u32 clk_index)
     if (clk_index > 1)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 offset = index + 0x10;
     u32 prev_value = HW(HW_CLOCK_SELECT_2);
     u32 cleared_bits =  prev_value & ~(1 << offset);
     HW(HW_CLOCK_SELECT_2) = cleared_bits | (clk_index << offset);
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 
     // return previous state
     return (prev_value >> offset) & 1;
@@ -347,11 +354,11 @@ int sceSysregApbTimerClkSelect(u32 index, u32 clk_index)
     if (clk_index > 7)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 offset = index << 2;
     u32 prev_value = HW(HW_CLOCK_SELECT_2);
     HW(HW_CLOCK_SELECT_2) = (prev_value & ~offset) | (clk_index << offset);
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 
     return 7 & (prev_value >> offset);
 }
@@ -368,9 +375,9 @@ int sceSysregApbTimerClkSelect(u32 index, u32 clk_index)
     if (clk_index > 7)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 prev_value = HW(HW_CLOCK_SELECT_2);
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 }
 */
 
@@ -383,11 +390,11 @@ int sceSysregSpiClkSelect(u32 index, u32 clk_index)
     if (clk_index > 7)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 offset = index << 2;
     u32 prev_value = HW(HW_CLOCK_SELECT_3);
     HW(HW_CLOCK_SELECT_3) = (prev_value & ~offset) | (clk_index << offset);
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 
     return 7 & (prev_value >> offset);
 }
@@ -417,12 +424,12 @@ int sceSysregPllSetOutSelect(u32 pll_index)
     if ((pll_index & 7) > 5)
         return SCE_ERROR_INVALID_VALUE;
 
-    sceKernelCpuSuspendIntr();
+    s32 intrState = sceKernelCpuSuspendIntr();
     u32 prev_value = 0xF & HW(HW_PLL_CONFIG);
     HW(HW_PLL_CONFIG) = 0x80 | pll_index;
-    u32 value = HW(HW_PLL_CONFIG);
+    //u32 value = HW(HW_PLL_CONFIG);
     // RE more here, similar to sceSysregPllUpdateFrequency
-    sceKernelCpuResumeIntr();
+    sceKernelCpuResumeIntr(intrState);
 
     return prev_value;
 }
