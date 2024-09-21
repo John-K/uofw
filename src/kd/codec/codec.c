@@ -37,7 +37,7 @@ enum CodecRegs {
     TrebleControl = 13,
     Unknown_14 = 14, // missing from table in datasheet
     Reset = 15,
-    3DControl = 16,
+    SpatialControl = 16,
     AutoLevelControl_1 = 17,
     AutoLevelControl_2 = 18,
     AutoLevelControl_3 = 19,
