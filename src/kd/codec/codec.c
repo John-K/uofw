@@ -10,18 +10,67 @@
 typedef struct
 {
     SceUID mutexId; // 0
-    short flags[43]; // 4
+    short shadowRegs[43]; // 4
     char flag; // 90
     char flag2; // 91
-    char reg; // 92
-    char unk93; // 93
+    char volume; // 92
+    char volumeTable; // 93
     short flag3; // 94
     char outputDisabled; // 96
-    char unk97; // 97
+    char ready; // 97
 } Codec;
 
+enum CodecRegs {
+    LeftInputVolume = 0,
+    RightInputVolume = 1,
+    LeftOut1Volume = 2,
+    RightOut1Volume = 3,
+    Reserved_4 = 4,
+    ADC_DAC_Control = 5,
+    Reserved_6 = 6,
+    AudioInterface = 7,
+    SampleRate = 8,
+    Reserved_9 = 9,
+    LeftDACVolume = 10,
+    RightDACVolume = 11,
+    BassControl = 12,
+    TrebleControl = 13,
+    Unknown_14 = 14, // missing from table in datasheet
+    Reset = 15,
+    3DControl = 16,
+    AutoLevelControl_1 = 17,
+    AutoLevelControl_2 = 18,
+    AutoLevelControl_3 = 19,
+    NoiseGate = 20,
+    LeftADCVolume = 21,
+    RightADCVolume = 22,
+    AdditionalControl_1 = 23,
+    AdditionalControl_2 = 24,
+    PwrMgmt_1 = 25,
+    PwrMgmt_2 = 26,
+    AdditionalControl_3 = 27,
+    Unknown_28 = 28,
+    Unknown_29 = 29,
+    Unknown_30 = 30,
+    ADCInputMode = 31,
+    LeftADCSignalPath = 32,
+    RightADCSignalPath = 33,
+    LeftOutMix_1 = 34,
+    LeftOutMix_2 = 35,
+    RightOutMix_1 = 36,
+    RightOutMix_2 = 37,
+    MonoOutMix_1 = 38,
+    MonoOutMix_2 = 39,
+    LeftOut2Volume = 40,
+    RightOut2Volume = 41,
+    MonoOutVolume = 42,
+    RegMax = 43
+}
+
 // 0F08
-char g_regs[] = {
+// first 32 entries appear to be for headphones
+// and second 32 are for speakers
+char g_volumeTable[] = {
     0x7F, 0x49, 0x46, 0x42, 0x3D, 0x3B, 0x39, 0x37, //  0 -  7
     0x35, 0x33, 0x31, 0x2F, 0x2D, 0x2B, 0x29, 0x27, //  8 - 15
     0x25, 0x23, 0x21, 0x1F, 0x1D, 0x1B, 0x19, 0x17, // 16 - 23
@@ -76,27 +125,27 @@ SCE_MODULE_BOOTSTART("sceCodecInitEntry");
 SCE_MODULE_REBOOT_BEFORE("sceCodecStopEntry");
 SCE_SDK_VERSION(SDK_VERSION);
 
-int sub_0000(int reg, int set)
+int doI2cTransaction(int reg, short value)
 {
     u8 sp[2];
-    g_codec.flags[reg] = set;
-    sp[0] = (reg << 1) | (set >> 8);
-    sp[1] = set;
+    g_codec.shadowRegs[reg] = value;
+    sp[0] = (reg << 1) | (value >> 8);
+    sp[1] = value;
     return sceI2cMasterTransmit(52, sp, 2);
 }
 
-int sub_004C(int reg, int flag)
+int writeCodecRegister(int reg, short value)
 {
-    if (reg < 0 || reg >= 43)
+    if (reg < 0 || reg >= RegMax)
         return SCE_ERROR_INVALID_INDEX;
-    if (g_codec.unk97 <= 0)
+    if (g_codec.ready <= 0)
         return 0;
-    if (g_codec.flags[reg] == flag)
+    if (g_codec.shadowRegs[reg] == value)
         return 0;
-    return sub_0000(reg, flag);
+    return doI2cTransaction(reg, value);
 }
 
-void sub_00A0(int set)
+void setGpio5State(int set)
 {
     if (set == 0) {
         // 0C4
@@ -106,12 +155,12 @@ void sub_00A0(int set)
         sceGpioPortClear(32);
 }
 
-void sub_00D8(void)
+void clearGpio1(void)
 {
     sceGpioPortClear(2);
 }
 
-void sub_00F4(void)
+void setGpio1(void)
 {
     sceGpioPortSet(2);
 }
@@ -119,38 +168,44 @@ void sub_00F4(void)
 int sub_0110()
 {
     sceGpioSetPortMode(5, 0);
-    sub_00A0(0);
+    setGpio5State(0);
     sceGpioSetPortMode(1, 0);
-    sub_00D8();
+    clearGpio1();
     return 0;
 }
 
-void sub_0150()
+void initCodecHW()
 {
     int ret = 0;
-    if (g_codec.unk97 != 0)
+    if (g_codec.ready != 0)
         return;
-    ret = sub_0000(15, 1);
-    g_codec.flags[15] = -1;
-    g_codec.unk97 = 1;
+    ret = doI2cTransaction(Reset, 1);
+    g_codec.shadowRegs[Reset] = -1;
+    g_codec.ready = 1;
     // 019C
+    // Write default (or restore?) values to codec registers
+    // negative values indicate that register should be skipped, 
+    // but the shadow copy set to its inverse for future use
     int i;
     for (i = 0; i < 43; i++)
     {
         if (ret < 0)
             return;
-        if (g_codec.flags[i] < 0)
+        if (g_codec.shadowRegs[i] < 0)
         {
             // 01C8
-            g_codec.flags[i] = ~g_codec.flags[i];
+            g_codec.shadowRegs[i] = ~g_codec.shadowRegs[i];
         }
         else
-            ret = sub_0000(i, g_codec.flags[i]);
+            ret = doI2cTransaction(i, g_codec.shadowRegs[i]);
         // 01D4
     }
     g_codec.flag = 0;
 }
 
+// arg 3 > 0, (re)init hardware
+// arg 3 == 0, set some flags
+// arg 3 < 0, clear args and flags
 int sub_01FC(int arg0, int arg1, int arg2, int arg3)
 {
     int flag1 = 0;
@@ -163,7 +218,7 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
     {
         // 027C
         if (arg3 > 0 && (flag & 1) == 0) {
-            sub_0150(0);
+            initCodecHW(0);
             flag |= 1;
         }
         // 0298
@@ -217,13 +272,13 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
     }
     // 0320
     if ((flag & 4) == 0) {
-        sub_00A0(0);
+        setGpio5State(0);
     }
     // 0338
     if ((flag & 2) == 0)
-        sub_00D8();
+        clearGpio1();
     // 0348
-    ret = sub_004C(26, flag1 & g_codec.flag3);
+    ret = writeCodecRegister(PwrMgmt_2, flag1 & g_codec.flag3);
     if (ret >= 0)
     {
         if ((flag & 7) != 0 && g_codec.flag >= 0) {
@@ -231,14 +286,14 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
             flag |= 0x80;
         }
         // 038C
-        ret = sub_004C(25, flag2);
+        ret = writeCodecRegister(PwrMgmt_1, flag2);
         if (ret >= 0)
         {
             if ((flag & 4) != 0)
-                sub_00A0(1);
+                setGpio5State(1);
             // 03B4
             if ((flag & 2) != 0)
-                sub_00F4();
+                setGpio1();
         }
     }
     // (03C4)
@@ -258,39 +313,47 @@ int sceCodecOutputEnable(int arg0, int arg1)
             return ret;
     }
     // 0460
-    return sceCodecSetOutputVolume(g_codec.reg);
+    return sceCodecSetOutputVolume(g_codec.volume);
 }
 
-int sceCodecSetOutputVolume(int reg)
+// index is of range [0, 31)
+int sceCodecSetOutputVolume(int index)
 {
-    if (reg < 0 || reg >= 31)
+    if (index < 0 || index >= 31)
         return SCE_ERROR_INVALID_INDEX;
-    int shift = 0;
+    int tableIndex = 0;
     if (g_codec.outputDisabled == 0)
-        shift = reg;
-    int ret = sceCodecSetHeadphoneVolume(-g_regs[g_codec.unk93 * 31 + shift]);
+        tableIndex = index;
+    // volumeTable is *always* zero
+    int ret = sceCodecSetHeadphoneVolume(-g_volumeTable[g_codec.volumeTable * 31 + tableIndex]);
     if (ret >= 0)
     {
-        ret = sceCodecSetSpeakerVolume(-g_regs[shift + 31]);
+        // this seems like an off by one error, likely should be 32 + tableIndex
+        ret = sceCodecSetSpeakerVolume(-g_volumeTable[31 + tableIndex]);
         if (ret >= 0)
-            g_codec.reg = reg;
+            g_codec.volume = index;
     }
     // 050C
     return ret;
 }
 
-int sceCodecSetHeadphoneVolume(int arg0)
+// volume is expected to be of range (-128, 128)
+int sceCodecSetHeadphoneVolume(int volume)
 {
-    int flag = pspMax(arg0 + g_codec.flag2 + 121, 0);
-    if (flag >= 128)
+    int level = pspMax(volume + g_codec.flag2 + 121, 0);
+    if (level >= 128)
         return SCE_ERROR_INVALID_VALUE;
     int ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
     if (ret < 0)
         return ret;
-    ret = sub_004C(2, flag | 0x80);
+    // store left headphone level (level is unchanged)
+    // and enable change gain on zero cross only
+    ret = writeCodecRegister(LeftOut1Volume, level | 0x80); 
     if (ret >= 0)
     {
-        ret = sub_004C(3, flag | 0x180);
+        // set right headphone level, enable change gain on zero cross only,
+        // and update left level from stored value
+        ret = writeCodecRegister(RightOut1Volume, level | 0x180);
         if (ret >= 0)
         {
             // 05C0
@@ -303,21 +366,28 @@ int sceCodecSetHeadphoneVolume(int arg0)
     return ret;
 }
 
-int sceCodecSetSpeakerVolume(int arg0)
+int sceCodecSetSpeakerVolume(int volume)
 {
-    int flag = arg0 + 121;
-    if (flag >= 128)
+    // hardware supports 80 steps, values 0x30 (-67dB) to 0x7F (+6dB)
+    // less than 0x30 is analog mute
+    // default level is 121 (0dB)
+    int level = volume + 121;
+    if (level >= 128)
         return SCE_ERROR_INVALID_VALUE;
-    flag += g_codec.flag2;
-    flag = pspMin(flag, 0x7F);
-    flag = pspMax(flag, 0);
+    level += g_codec.flag2;
+    level = pspMin(level, 0x7F);
+    level = pspMax(level, 0);
     int ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
     if (ret < 0)
         return ret;
-    ret = sub_004C(40, flag | 0x80);
+    // store left speaker level (level is unchanged)
+    // and enable change gain on zero cross only
+    ret = writeCodecRegister(LeftOut2Volume, level | 0x80);
     if (ret >= 0)
     {
-        ret = sub_004C(41, flag | 0x180);
+        // set right speaker level, enable change gain on zero cross only,
+        // and update left level from stored value
+        ret = writeCodecRegister(RightOut2Volume, level | 0x180);
         if (ret >= 0)
         {
             // 0688
@@ -333,7 +403,7 @@ int sceCodecSetSpeakerVolume(int arg0)
 int sceCodecSetVolumeOffset(char arg0)
 {
     g_codec.flag2 = arg0;
-    sceCodecSetOutputVolume(g_codec.reg);
+    sceCodecSetOutputVolume(g_codec.volume);
     return 0;
 }
 
@@ -344,7 +414,7 @@ int sceCodecOutputDisable(void)
 
 int sceCodec_driver_FCA6D35B(int freq)
 {
-    int flag = g_codec.flags[8] & 0x180;
+    int sampleRate = g_codec.shadowRegs[SampleRate] & 0x180;
     if (freq != 44100 && freq != 48000) {
         // 0748
         return SCE_ERROR_INVALID_VALUE;
@@ -352,14 +422,14 @@ int sceCodec_driver_FCA6D35B(int freq)
     if (freq == 44100)
     {
         // 0740
-        flag |= 0x20;
+        sampleRate |= 0x20;
         // 0750
     }
     // 0754
     int ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
     if (ret < 0)
         return ret;
-    ret = sub_004C(8, flag);
+    ret = writeCodecRegister(SampleRate, sampleRate);
     sceKernelUnlockMutex(g_codec.mutexId, 1);
     return ret;
 }
@@ -406,24 +476,24 @@ int sceCodec_driver_A88FD064(int arg0, int arg1, int arg2, int arg3, int arg4, i
     ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
     if (ret < 0)
         return ret;
-    ret = sub_004C(17, 123);
+    ret = writeCodecRegister(AutoLevelControl_1, 123);
     if (ret < 0)
         return ret;
-    ret = sub_0000(0, arg1);
+    ret = doI2cTransaction(LeftInputVolume, arg1);
     if (ret < 0)
         return ret;
-    ret = sub_0000(1, arg1);
+    ret = doI2cTransaction(RightInputVolume, arg1);
     if (ret < 0)
         return ret;
-    ret = sub_004C(17, arg0);
+    ret = writeCodecRegister(AutoLevelControl_1, arg0);
     if (ret < 0)
         return ret;
-    ret = sub_004C(20, arg2);
+    ret = writeCodecRegister(NoiseGate, arg2);
     if (ret < 0)
         return ret;
-    ret = sub_004C(18, pspMin(pspMax(arg3, 0), 15));
+    ret = writeCodecRegister(AutoLevelControl_2, pspMin(pspMax(arg3, 0), 15));
     if (ret >= 0)
-        ret = sub_004C(19, (pspMin(pspMax(arg5, 0), 10) & 0xFFFFFF0F) | ((pspMin(pspMax(arg4, 0), 10) << 4) & 0xF0));
+        ret = writeCodecRegister(AutoLevelControl_3, (pspMin(pspMax(arg5, 0), 10) & 0xFFFFFF0F) | ((pspMin(pspMax(arg4, 0), 10) << 4) & 0xF0));
     // 09C0
     sceKernelUnlockMutex(g_codec.mutexId, 1);
     return ret;
@@ -442,17 +512,17 @@ s32 sysEvHandler(s32 ev_id, char* ev_name __attribute__((unused)), void* param _
     case 0x200:
         // 0A84
         sub_01FC(-1, -1, -1, 0);
-        g_codec.flags[25] = 0x1C0;
-        g_codec.unk97 = -1;
-        g_codec.flags[2] = 0x80;
-        g_codec.flags[3] = 0x180;
+        g_codec.shadowRegs[PwrMgmt_1] = 0x1C0;
+        g_codec.ready = -1;
+        g_codec.shadowRegs[LeftOut1Volume] = 0x80;
+        g_codec.shadowRegs[RightOut1Volume] = 0x180;
         break;
 
     case 0x4003:
         // 0AB8
         sceGpioDisableTimerCapture(1, 2);
         sceGpioDisableTimerCapture(5, 2);
-        g_codec.unk97 = 0;
+        g_codec.ready = 0;
         g_codec.flag = 0;
         break;
 
@@ -479,7 +549,7 @@ int sceCodecInitEntry()
     for (;;)
         ;
     sub_0110();
-    sub_0150(1);
+    initCodecHW(1);
     g_codec.mutexId = sceKernelCreateMutex("SceCodec", 1, 0, NULL);
     if (g_codec.mutexId <= 0)
         return 1;
@@ -489,10 +559,12 @@ int sceCodecInitEntry()
 
 int sceCodecSelectVolumeTable(int arg0)
 {
+    // volume table is only ever allowed to be zero, 
+    // was this different in older FW versions?
     if (arg0 != 0)
         return SCE_ERROR_INVALID_INDEX;
-    g_codec.unk93 = 0;
-    sceCodecSetOutputVolume(g_codec.reg);
+    g_codec.volumeTable = 0;
+    sceCodecSetOutputVolume(g_codec.volume);
     return 0;
 }
 
