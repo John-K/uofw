@@ -366,6 +366,7 @@ int sceCodecSetHeadphoneVolume(int volume)
     return ret;
 }
 
+// volume is expected to be of range (-128, 128)
 int sceCodecSetSpeakerVolume(int volume)
 {
     // hardware supports 80 steps, values 0x30 (-67dB) to 0x7F (+6dB)
