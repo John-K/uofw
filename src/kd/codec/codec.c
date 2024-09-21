@@ -15,7 +15,7 @@ typedef struct
     char volumeOffset; // 91
     char volumeIndex; // 92
     char volumeTable; // 93
-    short flag3; // 94
+    short nineBitMask; // 94
     char outputDisabled; // 96
     char ready; // 97
 } Codec;
@@ -278,7 +278,7 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
     if ((flag & 2) == 0)
         clearGpio1();
     // 0348
-    ret = writeCodecRegister(PwrMgmt_2, flag1 & g_codec.flag3);
+    ret = writeCodecRegister(PwrMgmt_2, flag1 & g_codec.nineBitMask);
     if (ret >= 0)
     {
         if ((flag & 7) != 0 && g_codec.flag >= 0) {
