@@ -12,8 +12,8 @@ typedef struct
     SceUID mutexId; // 0
     short shadowRegs[43]; // 4
     char flag; // 90
-    char flag2; // 91
-    char volume; // 92
+    char volumeOffset; // 91
+    char volumeIndex; // 92
     char volumeTable; // 93
     short flag3; // 94
     char outputDisabled; // 96
@@ -331,7 +331,7 @@ int sceCodecSetOutputVolume(int index)
         // this seems like an off by one error, likely should be 32 + tableIndex
         ret = sceCodecSetSpeakerVolume(-g_volumeTable[31 + tableIndex]);
         if (ret >= 0)
-            g_codec.volume = index;
+            g_codec.volumeIndex = index;
     }
     // 050C
     return ret;
@@ -340,7 +340,7 @@ int sceCodecSetOutputVolume(int index)
 // volume is expected to be of range (-128, 128)
 int sceCodecSetHeadphoneVolume(int volume)
 {
-    int level = pspMax(volume + g_codec.flag2 + 121, 0);
+    int level = pspMax(volume + g_codec.volumeOffset + 121, 0);
     if (level >= 128)
         return SCE_ERROR_INVALID_VALUE;
     int ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
@@ -374,7 +374,7 @@ int sceCodecSetSpeakerVolume(int volume)
     int level = volume + 121;
     if (level >= 128)
         return SCE_ERROR_INVALID_VALUE;
-    level += g_codec.flag2;
+    level += g_codec.volumeOffset;
     level = pspMin(level, 0x7F);
     level = pspMax(level, 0);
     int ret = sceKernelLockMutex(g_codec.mutexId, 1, NULL);
@@ -402,8 +402,8 @@ int sceCodecSetSpeakerVolume(int volume)
 
 int sceCodecSetVolumeOffset(char arg0)
 {
-    g_codec.flag2 = arg0;
-    sceCodecSetOutputVolume(g_codec.volume);
+    g_codec.volumeOffset = arg0;
+    sceCodecSetOutputVolume(g_codec.volumeIndex);
     return 0;
 }
 
