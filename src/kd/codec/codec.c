@@ -1,3 +1,5 @@
+// Based on reverse engineering codec_01g.prx
+
 #include <common_imp.h>
 
 #include "codec.h"
@@ -119,6 +121,7 @@ SceSysEventHandler g_sysEv = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
+// sceWM1800_Driver for codec_02g
 SCE_MODULE_INFO("sceWM8750_Driver", SCE_MODULE_KERNEL | SCE_MODULE_ATTR_CANT_STOP | SCE_MODULE_ATTR_EXCLUSIVE_LOAD
                                     | SCE_MODULE_ATTR_EXCLUSIVE_START, 1, 7);
 SCE_MODULE_BOOTSTART("sceCodecInitEntry");
@@ -149,28 +152,34 @@ void setGpio5State(int set)
 {
     if (set == 0) {
         // 0C4
-        sceGpioPortSet(32);
+        sceGpioPortSet(1 << 5);
     }
     else
-        sceGpioPortClear(32);
+        sceGpioPortClear(1 << 5);
 }
 
-void clearGpio1(void)
+// codec_02g.prx lacks any control of GPIO_1 and
+// the speaker amp is now inside the codec on
+// that model, so it follows that GPIO_1 is SPK_EN.
+// 02g uses WM1800 which is similar to its replacement,
+// WM8960 for which there is a datasheet available
+void disableSpeakerOutput(void)
 {
-    sceGpioPortClear(2);
+    sceGpioPortClear(1 << 1);
 }
 
-void setGpio1(void)
+void enableSpeakerOutput(void)
 {
-    sceGpioPortSet(2);
+    sceGpioPortSet(1 << 1);
 }
 
 int sub_0110()
 {
     sceGpioSetPortMode(5, 0);
     setGpio5State(0);
+
     sceGpioSetPortMode(1, 0);
-    clearGpio1();
+    disableSpeakerOutput();
     return 0;
 }
 
@@ -276,7 +285,7 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
     }
     // 0338
     if ((flag & 2) == 0)
-        clearGpio1();
+        disableSpeakerOutput();
     // 0348
     ret = writeCodecRegister(PwrMgmt_2, flag1 & g_codec.nineBitMask);
     if (ret >= 0)
@@ -293,7 +302,7 @@ int sub_01FC(int arg0, int arg1, int arg2, int arg3)
                 setGpio5State(1);
             // 03B4
             if ((flag & 2) != 0)
-                setGpio1();
+                enableSpeakerOutput();
         }
     }
     // (03C4)
