@@ -65,7 +65,7 @@ enum CodecRegs {
     RightOut2Volume = 41,
     MonoOutVolume = 42,
     RegMax = 43
-}
+};
 
 // 0F08
 // first 32 entries appear to be for headphones
@@ -313,7 +313,7 @@ int sceCodecOutputEnable(int arg0, int arg1)
             return ret;
     }
     // 0460
-    return sceCodecSetOutputVolume(g_codec.volume);
+    return sceCodecSetOutputVolume(g_codec.volumeIndex);
 }
 
 // index is of range [0, 31)
@@ -565,7 +565,7 @@ int sceCodecSelectVolumeTable(int arg0)
     if (arg0 != 0)
         return SCE_ERROR_INVALID_INDEX;
     g_codec.volumeTable = 0;
-    sceCodecSetOutputVolume(g_codec.volume);
+    sceCodecSetOutputVolume(g_codec.volumeIndex);
     return 0;
 }
 
